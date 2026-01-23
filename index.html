@@ -8,6 +8,34 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+  <style>
+    /* iOS Safari fix for fixed positioning */
+    body {
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Ensure fixed header stays in place on iOS */
+    .fixed {
+      position: -webkit-sticky;
+      position: fixed;
+    }
+    
+    /* Smooth scrolling for the main content */
+    #mainContent {
+      -webkit-overflow-scrolling: touch;
+      overflow-y: scroll;
+    }
+    
+    /* Prevent iOS Safari auto-zoom on input focus */
+    input[type="text"],
+    input[type="number"],
+    input[type="email"],
+    input[type="tel"],
+    textarea,
+    select {
+      font-size: 16px !important;
+    }
+  </style>
 </head>
 <body class="bg-white min-h-screen">
   <!-- Mobile App Container -->
@@ -15,13 +43,13 @@
     <div class="bg-white overflow-hidden w-full min-h-screen">
       
       <!-- App Header -->
-      <div class="sticky top-0 z-50 bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-4 shadow-md">
+      <div class="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-4 shadow-md">
         <h1 class="text-2xl font-bold">Bill Splitter</h1>
         <p class="text-blue-100 text-sm">Scan & split your bills easily</p>
       </div>
 
       <!-- Main Content -->
-      <div class="flex flex-col bg-white overflow-y-auto pb-32" id="mainContent" style="min-height: calc(100vh - 100px);">
+      <div class="flex flex-col bg-white overflow-y-auto pb-32" id="mainContent" style="min-height: calc(100vh - 100px); padding-top: 100px;">
         
         <!-- Initial State: Camera Button -->
         <div id="initialState" class="flex-1 flex flex-col items-center justify-center p-6">
@@ -209,7 +237,7 @@
             </button>
           </div>
 
-          <div class="sticky top-0 bg-white z-10 px-6 py-2 border-b border-gray-200">
+          <div class="sticky bg-white z-10 px-6 py-2 border-b border-gray-200" style="top: 100px; -webkit-position: sticky;">
             <h3 class="text-lg font-semibold text-gray-800 mb-2">Assign Items</h3>
 
             <div class="bg-gray-100 rounded-lg p-2 flex justify-between items-center text-sm mb-2">
@@ -251,6 +279,25 @@
           
           <div class="mb-6" id="summaryContent">
             <h3 class="text-lg font-semibold text-gray-800 mb-4">Split Summary</h3>
+            
+            <!-- Bill Totals Summary -->
+            <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 mb-4 text-white">
+              <div class="space-y-2">
+                <div class="flex justify-between items-center">
+                  <span class="text-blue-100">Bill Total:</span>
+                  <span class="font-semibold text-lg" id="billTotalDisplay">R0.00</span>
+                </div>
+                <div class="flex justify-between items-center">
+                  <span class="text-blue-100">Total Tip:</span>
+                  <span class="font-semibold text-lg" id="totalTipDisplay">R0.00</span>
+                </div>
+                <div class="flex justify-between items-center pt-2 border-t border-blue-400">
+                  <span class="font-bold">Grand Total:</span>
+                  <span class="font-bold text-2xl" id="grandTotalDisplay">R0.00</span>
+                </div>
+              </div>
+            </div>
+            
             <div id="summaryList" class="space-y-3 mb-6">
               <!-- Summary will be shown here -->
             </div>
@@ -877,10 +924,38 @@
         container.appendChild(personDiv);
       });
       
+      // Update grand totals
+      updateGrandTotals();
+      
       showState('summaryState');
       
       // Scroll to top of the page
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function updateGrandTotals() {
+      // Calculate bill total
+      let billTotal = 0;
+      billItems.forEach(item => {
+        billTotal += item.price;
+      });
+      
+      // Calculate total tips from all people
+      let totalTip = 0;
+      people.forEach((person, index) => {
+        const tipAmountDisplay = document.getElementById(`tip-amount-${index}`);
+        if (tipAmountDisplay) {
+          const tipText = tipAmountDisplay.textContent.replace('R', '');
+          totalTip += parseFloat(tipText) || 0;
+        }
+      });
+      
+      const grandTotal = billTotal + totalTip;
+      
+      // Update displays
+      document.getElementById('billTotalDisplay').textContent = `R${billTotal.toFixed(2)}`;
+      document.getElementById('totalTipDisplay').textContent = `R${totalTip.toFixed(2)}`;
+      document.getElementById('grandTotalDisplay').textContent = `R${grandTotal.toFixed(2)}`;
     }
 
     function setTip(personIndex, tipPercent) {
@@ -917,6 +992,9 @@
           btn.classList.add('bg-gray-200', 'text-gray-700');
         }
       });
+      
+      // Update grand totals
+      updateGrandTotals();
     }
 
     function startOver() {
