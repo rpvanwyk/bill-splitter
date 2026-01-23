@@ -502,9 +502,17 @@
       }
       
       showState('loadingState');
+      
+      // Update loading message to mention possible wait time
+      const loadingText = document.querySelector('#loadingState p');
+      const originalText = loadingText.textContent;
+      loadingText.textContent = 'Analyzing bill... (This may take up to 60 seconds on first use)';
 
       try {
-        // Call your backend instead of Anthropic directly
+        // Call your backend with a longer timeout (90 seconds)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 second timeout
+        
         const response = await fetch(`${BACKEND_URL}/api/analyze`, {
           method: 'POST',
           headers: {
@@ -512,8 +520,11 @@
           },
           body: JSON.stringify({
             images: billImages
-          })
+          }),
+          signal: controller.signal
         });
+        
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
           const errorData = await response.json();
@@ -531,7 +542,20 @@
 
       } catch (error) {
         console.error('Analysis error:', error);
-        alert(`Failed to analyze bill: ${error.message}\n\nPlease try again or add items manually.`);
+        
+        let errorMessage = `Failed to analyze bill: ${error.message}\n\nPlease try again or add items manually.`;
+        
+        // More helpful message for timeout/network errors
+        if (error.name === 'AbortError') {
+          errorMessage = 'Request timed out. The backend service may be starting up.\n\nPlease wait a moment and try again, or add items manually.';
+        } else if (error.message === 'Failed to fetch' || error.message.includes('Load failed')) {
+          errorMessage = 'Could not connect to backend. The service may be waking up (takes ~60 seconds on first use).\n\nPlease wait a moment and try again, or add items manually.';
+        }
+        
+        alert(errorMessage);
+        
+        // Reset loading text
+        loadingText.textContent = originalText;
         
         // Show empty results page so user can add items manually
         billItems = [];
