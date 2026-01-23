@@ -231,16 +231,11 @@
 
         <!-- Assignment State -->
         <div id="assignmentState" class="hidden">
-          <div class="px-6 pt-6 pb-3">
-            <button onclick="showState('partySetupState')" class="mb-3 text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
-              ← Back
-            </button>
-          </div>
-
-          <div class="sticky bg-white z-10 px-6 py-2 border-b border-gray-200" style="top: 100px; -webkit-position: sticky;">
+          <!-- Sticky Header with Totals -->
+          <div class="sticky bg-white z-10 px-6 py-3 border-b border-gray-200 shadow-sm" style="top: 100px; -webkit-position: sticky;">
             <h3 class="text-lg font-semibold text-gray-800 mb-2">Assign Items</h3>
 
-            <div class="bg-gray-100 rounded-lg p-2 flex justify-between items-center text-sm mb-2">
+            <div class="bg-gray-100 rounded-lg p-2 flex justify-between items-center text-sm">
               <div class="flex flex-col items-center flex-1">
                 <span class="font-bold text-lg text-gray-800" id="totalItemsCount">0</span>
                 <span class="text-gray-600 text-xs">Total</span>
@@ -256,7 +251,12 @@
             </div>
           </div>
 
-          <div class="p-6 pt-3">
+          <!-- Content with Back Button -->
+          <div class="p-6">
+            <button onclick="showState('partySetupState')" class="mb-3 text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
+              ← Back
+            </button>
+            
             <div id="assignmentItems" class="space-y-3 mb-6">
               <!-- Items will be inserted here for assignment -->
             </div>
@@ -1013,7 +1013,22 @@
       const clonedContent = summaryContent.cloneNode(true);
       clonedContent.style.position = 'absolute';
       clonedContent.style.left = '-9999px';
+      
+      // Add padding at top for iPhone notch (approximately two tip button heights = ~80px)
+      clonedContent.style.paddingTop = '80px';
+      
       document.body.appendChild(clonedContent);
+      
+      // Make the totals box text smaller (same size as subtotal lines)
+      const totalsBox = clonedContent.querySelector('.bg-gradient-to-r.from-blue-500.to-blue-600');
+      if (totalsBox) {
+        const totalsTexts = totalsBox.querySelectorAll('span');
+        totalsTexts.forEach(span => {
+          // Make all text in the totals box text-sm size
+          span.style.fontSize = '0.875rem'; // text-sm
+          span.style.lineHeight = '1.25rem';
+        });
+      }
       
       // Hide all tip buttons in the clone
       const tipSections = clonedContent.querySelectorAll('[class*="flex gap-2"]');
