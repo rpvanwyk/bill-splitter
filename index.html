@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, maximum-scale=5.0, minimum-scale=1.0">
+  <title>Bill Splitter</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+</head>
+<body class="bg-white min-h-screen">
+  <!-- Mobile App Container -->
+  <div class="w-full min-h-screen">
+    <div class="bg-white overflow-hidden w-full min-h-screen">
+      
+      <!-- App Header -->
+      <div class="sticky top-0 z-50 bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-4 shadow-md">
+        <h1 class="text-2xl font-bold">Bill Splitter</h1>
+        <p class="text-blue-100 text-sm">Scan & split your bills easily</p>
+      </div>
+
+      <!-- Main Content -->
+      <div class="flex flex-col bg-white overflow-y-auto pb-32" id="mainContent" style="min-height: calc(100vh - 100px);">
+        
+        <!-- Initial State: Camera Button -->
+        <div id="initialState" class="flex-1 flex flex-col items-center justify-center p-6">
+          <div class="w-32 h-32 bg-blue-100 rounded-full flex items-center justify-center mb-6">
+            <svg class="w-16 h-16 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
+          </div>
+          <h2 class="text-xl font-semibold text-gray-800 mb-2">Scan Your Bill</h2>
+          <p class="text-gray-600 text-center mb-8">Take a photo of your restaurant bill to get started</p>
+          
+          <input type="file" id="cameraInput" accept="image/*" capture="environment" class="hidden">
+          <input type="file" id="galleryInput" accept="image/*" class="hidden">
+          
+          <button onclick="triggerCamera()" class="bg-blue-600 text-white px-8 py-4 rounded-full font-semibold shadow-lg hover:bg-blue-700 transition-all mb-4 w-full max-w-xs">
+            📷 Take Photo
+          </button>
+          
+          <button onclick="triggerGallery()" class="bg-blue-500 text-white px-8 py-4 rounded-full font-semibold shadow-lg hover:bg-blue-600 transition-all w-full max-w-xs">
+            🖼️ Upload from Gallery
+          </button>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="hidden flex-1 flex flex-col items-center justify-center p-6">
+          <div class="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p class="text-gray-600">Analyzing bill...</p>
+        </div>
+
+        <!-- Image Management State -->
+        <div id="imageManagementState" class="hidden p-6">
+          <button onclick="showState('initialState'); resetImages();" class="mb-4 text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
+            ← Back
+          </button>
+          
+          <h3 class="text-lg font-semibold text-gray-800 mb-4">Bill Images</h3>
+          
+          <!-- Uploaded Images Grid -->
+          <div id="uploadedImagesGrid" class="grid grid-cols-2 gap-3 mb-4">
+            <!-- Uploaded images will appear here -->
+          </div>
+          
+          <!-- Add More Buttons -->
+          <div class="space-y-2 mb-4">
+            <button onclick="triggerCamera()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-all">
+              📷 Take Another Photo
+            </button>
+            <button onclick="triggerGallery()" class="w-full bg-blue-500 text-white py-3 rounded-lg font-semibold hover:bg-blue-600 transition-all">
+              🖼️ Upload Another Image
+            </button>
+          </div>
+          
+          <button onclick="analyzeAllImages()" id="analyzeAllBtn" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-all disabled:bg-gray-300 disabled:cursor-not-allowed" disabled>
+            Analyze All Images
+          </button>
+        </div>
+
+        <!-- Crop State -->
+        <div id="cropState" class="hidden p-6">
+          <h3 class="text-lg font-semibold text-gray-800 mb-4">Crop Image</h3>
+          
+          <div class="mb-4 bg-black rounded-lg overflow-hidden" style="max-height: 400px;">
+            <img id="cropperImage" style="max-width: 100%;">
+          </div>
+          
+          <div class="flex gap-3">
+            <button onclick="cancelCrop()" class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-300 transition-all">
+              Cancel
+            </button>
+            <button onclick="saveCrop()" class="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-all">
+              Save Crop
+            </button>
+          </div>
+        </div>
+
+        <!-- Preview State (REMOVED) -->
+
+        <!-- Results State -->
+        <div id="resultsState" class="hidden p-6">
+          <button onclick="retakeBill()" class="mb-4 text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
+            ← Back
+          </button>
+          
+          <div class="mb-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Bill Items</h3>
+            <div id="billItems" class="space-y-3 mb-4">
+              <!-- Items will be inserted here -->
+            </div>
+            
+            <!-- Add Manual Item -->
+            <div class="bg-blue-50 border-2 border-dashed border-blue-300 rounded-lg p-3 mb-4">
+              <p class="text-sm font-medium text-gray-700 mb-2">Add Manual Item</p>
+              <input 
+                type="text" 
+                id="manualItemName" 
+                placeholder="Item name"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"
+              >
+              <input 
+                type="number" 
+                id="manualItemPrice" 
+                placeholder="Price"
+                step="0.01"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"
+              >
+              <input 
+                type="number" 
+                id="manualItemQty" 
+                placeholder="Qty"
+                value="1"
+                min="1"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"
+              >
+              <button onclick="addManualItem()" class="w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-all">
+                + Add Item
+              </button>
+            </div>
+          </div>
+          
+          <!-- Bill Total Input -->
+          <div class="bg-gray-50 border border-gray-300 rounded-lg p-4 mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Enter Bill Total</label>
+            <input 
+              type="number" 
+              id="billTotalInput" 
+              placeholder="0.00"
+              step="0.01"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"
+              oninput="validateBillTotal()"
+            >
+            <div id="totalComparisonMessage" class="text-sm mt-2"></div>
+          </div>
+
+          <div class="bg-gray-100 rounded-lg p-4 mb-4">
+            <div class="flex justify-between items-center text-lg font-semibold">
+              <span>Calculated Total</span>
+              <span id="totalAmount">$0.00</span>
+            </div>
+          </div>
+
+          <button onclick="goToPartySetup()" id="continueToSplitBtn" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-all disabled:bg-gray-300 disabled:cursor-not-allowed" disabled>
+            Continue to Split
+          </button>
+        </div>
+
+        <!-- Party Setup State -->
+        <div id="partySetupState" class="hidden p-6">
+          <button onclick="showState('resultsState')" class="mb-4 text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
+            ← Back
+          </button>
+          
+          <div class="mb-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-2">Who's splitting?</h3>
+            <p class="text-sm text-gray-600 mb-4">Add people to split the bill</p>
+            
+            <div class="flex gap-2 mb-4">
+              <input 
+                type="text" 
+                id="personNameInput" 
+                placeholder="Enter name"
+                class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                onkeypress="if(event.key==='Enter') addPerson()"
+              >
+              <button onclick="addPerson()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-all text-sm">
+                Add
+              </button>
+            </div>
+
+            <div id="peopleList" class="space-y-2 mb-6">
+              <!-- People will be listed here -->
+            </div>
+          </div>
+
+          <button onclick="goToAssignment()" id="continueToAssignment" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-all disabled:bg-gray-300 disabled:cursor-not-allowed" disabled>
+            Continue to Assignment
+          </button>
+        </div>
+
+        <!-- Assignment State -->
+        <div id="assignmentState" class="hidden">
+          <div class="px-6 pt-6 pb-3">
+            <button onclick="showState('partySetupState')" class="mb-3 text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
+              ← Back
+            </button>
+          </div>
+
+          <div class="sticky top-0 bg-white z-10 px-6 py-2 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-800 mb-2">Assign Items</h3>
+
+            <div class="bg-gray-100 rounded-lg p-2 flex justify-between items-center text-sm mb-2">
+              <div class="flex flex-col items-center flex-1">
+                <span class="font-bold text-lg text-gray-800" id="totalItemsCount">0</span>
+                <span class="text-gray-600 text-xs">Total</span>
+              </div>
+              <div class="flex flex-col items-center flex-1 border-l border-r border-gray-300">
+                <span class="font-bold text-lg text-green-600" id="allocatedCount">0</span>
+                <span class="text-gray-600 text-xs">Allocated</span>
+              </div>
+              <div class="flex flex-col items-center flex-1">
+                <span class="font-bold text-lg text-red-600" id="unallocatedCount">0</span>
+                <span class="text-gray-600 text-xs">Unallocated</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="p-6 pt-3">
+            <div id="assignmentItems" class="space-y-3 mb-6">
+              <!-- Items will be inserted here for assignment -->
+            </div>
+
+            <button onclick="viewSummary()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-all">
+              View Summary
+            </button>
+          </div>
+        </div>
+
+        <!-- Summary State -->
+        <div id="summaryState" class="hidden p-6">
+          <button onclick="showState('assignmentState')" class="mb-4 text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
+            ← Back
+          </button>
+          
+          <div id="unallocatedWarning" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4 text-center font-semibold">
+            ⚠ NOT ALL ITEMS ALLOCATED
+          </div>
+          
+          <div class="mb-6" id="summaryContent">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Split Summary</h3>
+            <div id="summaryList" class="space-y-3 mb-6">
+              <!-- Summary will be shown here -->
+            </div>
+          </div>
+
+          <div class="flex gap-3">
+            <button onclick="exportSummary()" class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition-all">
+              📥 Export as Image
+            </button>
+            <button onclick="startOver()" class="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-all">
+              Split Another Bill
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // IMPORTANT: Replace this with your actual backend URL after deployment
+    const BACKEND_URL = 'YOUR_BACKEND_URL_HERE';
+    
+    let currentImageData = null;
+    let billImages = []; // Array to store multiple cropped images
+    let cropper = null;
+    let billItems = [];
+    let people = [];
+    let itemAssignments = {}; // { itemIndex: [personIndexes] }
+
+    // On load, go straight to initial state
+    window.addEventListener('DOMContentLoaded', function() {
+      showState('initialState');
+      setupPinchZoomBounce();
+    });
+
+    // Pinch-to-zoom bounce-back functionality
+    function setupPinchZoomBounce() {
+      let zoomTimeout;
+      let lastTouchDistance = 0;
+      let isZooming = false;
+
+      document.addEventListener('touchstart', function(e) {
+        if (e.touches.length === 2) {
+          isZooming = true;
+          lastTouchDistance = Math.hypot(
+            e.touches[0].pageX - e.touches[1].pageX,
+            e.touches[0].pageY - e.touches[1].pageY
+          );
+        }
+      }, { passive: true });
+
+      document.addEventListener('touchmove', function(e) {
+        if (e.touches.length === 2 && isZooming) {
+          clearTimeout(zoomTimeout);
+        }
+      }, { passive: true });
+
+      document.addEventListener('touchend', function(e) {
+        if (isZooming && e.touches.length < 2) {
+          isZooming = false;
+          clearTimeout(zoomTimeout);
+          
+          // Bounce back to normal zoom after 800ms delay
+          zoomTimeout = setTimeout(function() {
+            const viewport = document.querySelector('meta[name="viewport"]');
+            // Force reset by temporarily changing and restoring viewport
+            viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0');
+            setTimeout(function() {
+              viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, user-scalable=yes, maximum-scale=5.0, minimum-scale=1.0');
+            }, 10);
+          }, 800);
+        }
+      }, { passive: true });
+    }
+
+    function triggerCamera() {
+      document.getElementById('cameraInput').click();
+    }
+
+    function triggerGallery() {
+      document.getElementById('galleryInput').click();
+    }
+
+    // Handle camera input
+    document.getElementById('cameraInput').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          currentImageData = event.target.result;
+          showCropInterface();
+        };
+        reader.readAsDataURL(file);
+      }
+      // Reset file input for next upload
+      e.target.value = '';
+    });
+
+    // Handle gallery input
+    document.getElementById('galleryInput').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          currentImageData = event.target.result;
+          showCropInterface();
+        };
+        reader.readAsDataURL(file);
+      }
+      // Reset file input for next upload
+      e.target.value = '';
+    });
+
+    function showCropInterface() {
+      const cropperImg = document.getElementById('cropperImage');
+      cropperImg.src = currentImageData;
+      
+      showState('cropState');
+      
+      // Initialize cropper after a small delay to ensure image is loaded
+      setTimeout(() => {
+        if (cropper) {
+          cropper.destroy();
+        }
+        cropper = new Cropper(cropperImg, {
+          aspectRatio: NaN, // Free aspect ratio
+          viewMode: 1,
+          guides: true,
+          center: true,
+          highlight: true,
+          background: false,
+          autoCropArea: 1,
+          responsive: true
+        });
+      }, 100);
+    }
+
+    function cancelCrop() {
+      if (cropper) {
+        cropper.destroy();
+        cropper = null;
+      }
+      currentImageData = null;
+      
+      // Go back to appropriate state
+      if (billImages.length > 0) {
+        showState('imageManagementState');
+      } else {
+        showState('initialState');
+      }
+    }
+
+    function saveCrop() {
+      if (!cropper) return;
+      
+      // Get cropped canvas
+      const canvas = cropper.getCroppedCanvas({
+        maxWidth: 2048,
+        maxHeight: 2048,
+        fillColor: '#fff',
+        imageSmoothingEnabled: true,
+        imageSmoothingQuality: 'high'
+      });
+      
+      // Convert to base64
+      const croppedImageData = canvas.toDataURL('image/jpeg', 0.9);
+      
+      // Add to images array
+      billImages.push(croppedImageData);
+      
+      // Cleanup
+      cropper.destroy();
+      cropper = null;
+      currentImageData = null;
+      
+      // Show image management state
+      updateUploadedImagesGrid();
+      showState('imageManagementState');
+    }
+
+    function updateUploadedImagesGrid() {
+      const grid = document.getElementById('uploadedImagesGrid');
+      const analyzeBtn = document.getElementById('analyzeAllBtn');
+      
+      grid.innerHTML = '';
+      
+      billImages.forEach((imgData, index) => {
+        const imgDiv = document.createElement('div');
+        imgDiv.className = 'relative bg-gray-100 rounded-lg overflow-hidden aspect-square';
+        imgDiv.innerHTML = `
+          <img src="${imgData}" class="w-full h-full object-cover">
+          <button onclick="removeImage(${index})" class="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 font-bold">
+            ×
+          </button>
+          <div class="absolute bottom-2 left-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
+            Image ${index + 1}
+          </div>
+        `;
+        grid.appendChild(imgDiv);
+      });
+      
+      // Enable analyze button if we have images
+      analyzeBtn.disabled = billImages.length === 0;
+    }
+
+    function removeImage(index) {
+      billImages.splice(index, 1);
+      updateUploadedImagesGrid();
+      
+      // If no images left, go back to initial state
+      if (billImages.length === 0) {
+        showState('initialState');
+      }
+    }
+
+    function resetImages() {
+      billImages = [];
+      if (cropper) {
+        cropper.destroy();
+        cropper = null;
+      }
+    }
+
+    function showState(stateId) {
+      const states = ['initialState', 'loadingState', 'cropState', 'imageManagementState', 'resultsState', 'partySetupState', 'assignmentState', 'summaryState'];
+      states.forEach(id => {
+        document.getElementById(id).classList.add('hidden');
+      });
+      document.getElementById(stateId).classList.remove('hidden');
+    }
+
+    function retakeBill() {
+      resetImages();
+      showState('initialState');
+    }
+
+    async function analyzeAllImages() {
+      if (billImages.length === 0) {
+        alert('No images to analyze');
+        showState('initialState');
+        return;
+      }
+      
+      if (BACKEND_URL === 'YOUR_BACKEND_URL_HERE') {
+        alert('Please configure your backend URL first!\n\nEdit the BACKEND_URL at the top of the HTML file.');
+        return;
+      }
+      
+      showState('loadingState');
+
+      try {
+        // Call your backend instead of Anthropic directly
+        const response = await fetch(`${BACKEND_URL}/api/analyze`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            images: billImages
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Backend error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        billItems = data.items;
+
+        if (!Array.isArray(billItems) || billItems.length === 0) {
+          throw new Error('No items found in the bill');
+        }
+
+        displayResults(billItems);
+
+      } catch (error) {
+        console.error('Analysis error:', error);
+        alert(`Failed to analyze bill: ${error.message}\n\nPlease try again or add items manually.`);
+        
+        // Show empty results page so user can add items manually
+        billItems = [];
+        displayResults(billItems);
+      }
+    }
+
+    function displayResults(items) {
+      const container = document.getElementById('billItems');
+      container.innerHTML = '';
+      
+      updateCalculatedTotal();
+      
+      billItems.forEach((item, index) => {
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'bg-white border border-gray-200 rounded-lg p-4 flex justify-between items-center';
+        itemDiv.innerHTML = `
+          <div>
+            <p class="font-medium text-gray-800 text-sm">${item.name}</p>
+          </div>
+          <div class="text-right flex items-center gap-2">
+            <p class="font-semibold text-gray-900 text-sm">R${item.price.toFixed(2)}</p>
+            <button onclick="removeItem(${index})" class="text-red-500 hover:text-red-700 font-bold text-xl">×</button>
+          </div>
+        `;
+        container.appendChild(itemDiv);
+      });
+
+      showState('resultsState');
+    }
+
+    function addManualItem() {
+      const nameInput = document.getElementById('manualItemName');
+      const priceInput = document.getElementById('manualItemPrice');
+      const qtyInput = document.getElementById('manualItemQty');
+      
+      const name = nameInput.value.trim();
+      const price = parseFloat(priceInput.value);
+      const qty = parseInt(qtyInput.value) || 1;
+      
+      if (name && price > 0 && qty > 0) {
+        // Add separate items for each quantity
+        for (let i = 0; i < qty; i++) {
+          billItems.push({ name, price });
+        }
+        nameInput.value = '';
+        priceInput.value = '';
+        qtyInput.value = '1';
+        displayResults(billItems);
+      } else {
+        alert('Please enter item name, valid price, and quantity');
+      }
+    }
+
+    function removeItem(index) {
+      billItems.splice(index, 1);
+      displayResults(billItems);
+    }
+
+    function updateCalculatedTotal() {
+      let total = 0;
+      billItems.forEach(item => {
+        total += item.price;
+      });
+      document.getElementById('totalAmount').textContent = `R${total.toFixed(2)}`;
+      validateBillTotal();
+      return total;
+    }
+
+    function validateBillTotal() {
+      const billTotalInput = document.getElementById('billTotalInput');
+      const messageDiv = document.getElementById('totalComparisonMessage');
+      const continueBtn = document.getElementById('continueToSplitBtn');
+      
+      const enteredTotal = parseFloat(billTotalInput.value);
+      const calculatedTotal = billItems.reduce((sum, item) => sum + item.price, 0);
+      
+      if (!enteredTotal || enteredTotal <= 0) {
+        messageDiv.innerHTML = '';
+        continueBtn.disabled = true;
+        return;
+      }
+      
+      const difference = Math.abs(enteredTotal - calculatedTotal);
+      
+      if (difference < 0.01) {
+        messageDiv.innerHTML = '<span class="text-green-600 font-medium">✓ Totals match!</span>';
+        continueBtn.disabled = false;
+      } else if (calculatedTotal < enteredTotal) {
+        messageDiv.innerHTML = `<span class="text-red-600 font-medium">⚠ Items total R${calculatedTotal.toFixed(2)} - Missing R${difference.toFixed(2)}</span>`;
+        continueBtn.disabled = true;
+      } else {
+        messageDiv.innerHTML = `<span class="text-red-600 font-medium">⚠ Items total R${calculatedTotal.toFixed(2)} - Over by R${difference.toFixed(2)}</span>`;
+        continueBtn.disabled = true;
+      }
+    }
+
+    function goToPartySetup() {
+      people = [];
+      itemAssignments = {};
+      document.getElementById('peopleList').innerHTML = '';
+      document.getElementById('personNameInput').value = '';
+      showState('partySetupState');
+    }
+
+    function addPerson() {
+      const input = document.getElementById('personNameInput');
+      const name = input.value.trim();
+      
+      if (name) {
+        people.push(name);
+        input.value = '';
+        updatePeopleList();
+        updateContinueButton();
+        input.focus(); // Auto-focus back to input
+      }
+    }
+
+    function updatePeopleList() {
+      const container = document.getElementById('peopleList');
+      container.innerHTML = '';
+      
+      people.forEach((person, index) => {
+        const personDiv = document.createElement('div');
+        personDiv.className = 'bg-blue-50 border border-blue-200 rounded-lg p-3 flex justify-between items-center';
+        personDiv.innerHTML = `
+          <span class="font-medium text-gray-800">${person}</span>
+          <button onclick="removePerson(${index})" class="text-red-500 hover:text-red-700 font-bold text-xl">×</button>
+        `;
+        container.appendChild(personDiv);
+      });
+    }
+
+    function removePerson(index) {
+      people.splice(index, 1);
+      updatePeopleList();
+      updateContinueButton();
+    }
+
+    function updateContinueButton() {
+      const btn = document.getElementById('continueToAssignment');
+      btn.disabled = people.length < 2;
+    }
+
+    function goToAssignment() {
+      if (people.length < 2) return;
+      
+      // Initialize assignments
+      billItems.forEach((item, index) => {
+        if (!itemAssignments[index]) {
+          itemAssignments[index] = [];
+        }
+      });
+      
+      displayAssignmentItems();
+      showState('assignmentState');
+    }
+
+    function displayAssignmentItems() {
+      const container = document.getElementById('assignmentItems');
+      container.innerHTML = '';
+      
+      let allocatedCount = 0;
+      let unallocatedCount = 0;
+      
+      billItems.forEach((item, itemIndex) => {
+        const isAssigned = itemAssignments[itemIndex].length > 0;
+        const bgColor = isAssigned ? 'bg-green-200' : 'bg-red-200';
+        
+        if (isAssigned) {
+          allocatedCount++;
+        } else {
+          unallocatedCount++;
+        }
+        
+        const itemDiv = document.createElement('div');
+        itemDiv.className = `${bgColor} border border-gray-300 rounded-lg p-4`;
+        
+        let assignedNames = itemAssignments[itemIndex]
+          .map(personIndex => people[personIndex])
+          .join(', ');
+        
+        if (!assignedNames) {
+          assignedNames = 'Not assigned';
+        }
+        
+        itemDiv.innerHTML = `
+          <div class="flex justify-between items-start mb-3">
+            <div>
+              <p class="font-medium text-gray-800">${item.name}</p>
+              <p class="text-sm text-gray-600">R${item.price.toFixed(2)}</p>
+            </div>
+          </div>
+          <div class="mb-2">
+            <p class="text-xs text-gray-500 mb-2">Assigned to: <span class="font-medium">${assignedNames}</span></p>
+          </div>
+          <div class="flex flex-wrap gap-2" id="peopleButtons-${itemIndex}">
+            ${people.map((person, personIndex) => `
+              <button 
+                onclick="toggleAssignment(${itemIndex}, ${personIndex})"
+                class="px-3 py-1 rounded-full text-sm font-medium transition-all ${
+                  itemAssignments[itemIndex].includes(personIndex)
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }"
+              >
+                ${person}
+              </button>
+            `).join('')}
+          </div>
+        `;
+        
+        container.appendChild(itemDiv);
+      });
+      
+      // Update counter
+      document.getElementById('totalItemsCount').textContent = billItems.length;
+      document.getElementById('allocatedCount').textContent = allocatedCount;
+      document.getElementById('unallocatedCount').textContent = unallocatedCount;
+    }
+
+    function toggleAssignment(itemIndex, personIndex) {
+      if (itemAssignments[itemIndex].includes(personIndex)) {
+        itemAssignments[itemIndex] = itemAssignments[itemIndex].filter(p => p !== personIndex);
+      } else {
+        itemAssignments[itemIndex].push(personIndex);
+      }
+      displayAssignmentItems();
+    }
+
+    function viewSummary() {
+      const container = document.getElementById('summaryList');
+      container.innerHTML = '';
+      
+      // Check if all items are allocated
+      let hasUnallocated = false;
+      billItems.forEach((item, itemIndex) => {
+        if (itemAssignments[itemIndex].length === 0) {
+          hasUnallocated = true;
+        }
+      });
+      
+      // Show/hide warning
+      const warningDiv = document.getElementById('unallocatedWarning');
+      if (hasUnallocated) {
+        warningDiv.classList.remove('hidden');
+      } else {
+        warningDiv.classList.add('hidden');
+      }
+      
+      // Calculate base totals per person
+      const personBaseTotals = people.map(() => 0);
+      
+      billItems.forEach((item, itemIndex) => {
+        const assignedPeople = itemAssignments[itemIndex];
+        if (assignedPeople.length > 0) {
+          const splitAmount = item.price / assignedPeople.length;
+          assignedPeople.forEach(personIndex => {
+            personBaseTotals[personIndex] += splitAmount;
+          });
+        }
+      });
+      
+      // Display each person's summary with tip options
+      people.forEach((person, index) => {
+        const baseTotal = personBaseTotals[index];
+        
+        const personDiv = document.createElement('div');
+        personDiv.className = 'bg-white border-2 border-gray-300 rounded-lg p-4';
+        personDiv.innerHTML = `
+          <div class="mb-3">
+            <h4 class="text-lg font-bold text-gray-800 mb-2">${person.toUpperCase()}</h4>
+            
+            <div class="space-y-1 mb-3">
+              ${billItems.map((item, itemIndex) => {
+                if (itemAssignments[itemIndex].includes(index)) {
+                  const splitCount = itemAssignments[itemIndex].length;
+                  const amount = item.price / splitCount;
+                  return `
+                    <div class="flex justify-between text-xs">
+                      <span class="text-gray-600">${item.name}${splitCount > 1 ? ` (split ${splitCount} ways)` : ''}</span>
+                      <span class="text-gray-800">R${amount.toFixed(2)}</span>
+                    </div>
+                  `;
+                }
+                return '';
+              }).join('')}
+              <div class="flex justify-between text-sm font-semibold pt-2 border-t border-gray-200">
+                <span class="text-gray-700">Subtotal</span>
+                <span class="text-gray-900">R${baseTotal.toFixed(2)}</span>
+              </div>
+              <div class="flex justify-between text-sm" id="tip-display-${index}">
+                <span class="text-gray-600">Tip (<span id="tip-percent-${index}">0</span>%)</span>
+                <span class="text-gray-800" id="tip-amount-${index}">R0.00</span>
+              </div>
+            </div>
+            
+            <div class="flex justify-between items-center pt-2 mb-3 border-t-2 border-gray-300">
+              <span class="text-lg font-bold text-gray-800">Total</span>
+              <span class="text-2xl font-bold text-blue-600" id="total-${index}">R${baseTotal.toFixed(2)}</span>
+            </div>
+            
+            <div>
+              <p class="text-xs font-medium text-gray-600 mb-2">Select Tip:</p>
+              <div class="flex gap-2">
+                <button onclick="setTip(${index}, 0.10)" class="flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all bg-gray-200 text-gray-700 hover:bg-blue-600 hover:text-white tip-btn-${index}" data-tip="10">
+                  10%
+                </button>
+                <button onclick="setTip(${index}, 0.15)" class="flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all bg-gray-200 text-gray-700 hover:bg-blue-600 hover:text-white tip-btn-${index}" data-tip="15">
+                  15%
+                </button>
+                <button onclick="setTip(${index}, 0.20)" class="flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all bg-gray-200 text-gray-700 hover:bg-blue-600 hover:text-white tip-btn-${index}" data-tip="20">
+                  20%
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+        container.appendChild(personDiv);
+      });
+      
+      showState('summaryState');
+      
+      // Scroll to top of the page
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function setTip(personIndex, tipPercent) {
+      // Calculate base total for this person
+      let baseTotal = 0;
+      billItems.forEach((item, itemIndex) => {
+        const assignedPeople = itemAssignments[itemIndex];
+        if (assignedPeople.includes(personIndex)) {
+          const splitAmount = item.price / assignedPeople.length;
+          baseTotal += splitAmount;
+        }
+      });
+      
+      const tipAmount = baseTotal * tipPercent;
+      const totalWithTip = baseTotal + tipAmount;
+      
+      // Update tip display
+      const tipPercentDisplay = document.getElementById(`tip-percent-${personIndex}`);
+      const tipAmountDisplay = document.getElementById(`tip-amount-${personIndex}`);
+      const totalDisplay = document.getElementById(`total-${personIndex}`);
+      
+      tipPercentDisplay.textContent = (tipPercent * 100).toFixed(0);
+      tipAmountDisplay.textContent = `R${tipAmount.toFixed(2)}`;
+      totalDisplay.textContent = `R${totalWithTip.toFixed(2)}`;
+      
+      // Update button styles
+      const buttons = document.querySelectorAll(`.tip-btn-${personIndex}`);
+      buttons.forEach(btn => {
+        if (btn.getAttribute('data-tip') === (tipPercent * 100).toFixed(0)) {
+          btn.classList.remove('bg-gray-200', 'text-gray-700');
+          btn.classList.add('bg-blue-600', 'text-white');
+        } else {
+          btn.classList.remove('bg-blue-600', 'text-white');
+          btn.classList.add('bg-gray-200', 'text-gray-700');
+        }
+      });
+    }
+
+    function startOver() {
+      currentImageData = null;
+      billItems = [];
+      people = [];
+      itemAssignments = {};
+      document.getElementById('fileInput').value = '';
+      showState('initialState');
+    }
+
+    async function exportSummary() {
+      const summaryContent = document.getElementById('summaryContent');
+      
+      // Clone the summary content for export
+      const clonedContent = summaryContent.cloneNode(true);
+      clonedContent.style.position = 'absolute';
+      clonedContent.style.left = '-9999px';
+      document.body.appendChild(clonedContent);
+      
+      // Hide all tip buttons in the clone
+      const tipSections = clonedContent.querySelectorAll('[class*="flex gap-2"]');
+      tipSections.forEach(section => {
+        // Check if this is a tip button section by checking parent structure
+        const parent = section.parentElement;
+        if (parent && parent.previousElementSibling && parent.previousElementSibling.textContent && parent.previousElementSibling.textContent.includes('Select Tip')) {
+          section.style.display = 'none';
+          parent.previousElementSibling.style.display = 'none'; // Hide "Select Tip:" label too
+        }
+      });
+      
+      // Make item names and prices 50% smaller (from text-xs to even smaller)
+      const itemRows = clonedContent.querySelectorAll('.space-y-1 > div.flex.justify-between.text-xs');
+      itemRows.forEach(row => {
+        row.style.fontSize = '0.5rem'; // Half of text-xs (0.75rem)
+        row.style.lineHeight = '0.75rem';
+      });
+      
+      try {
+        // Use html2canvas to capture the cloned content
+        const canvas = await html2canvas(clonedContent, {
+          backgroundColor: '#ffffff',
+          scale: 2, // Higher quality
+          logging: false
+        });
+        
+        // Remove the cloned element
+        document.body.removeChild(clonedContent);
+        
+        // Convert to blob and download
+        canvas.toBlob((blob) => {
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          const date = new Date().toISOString().split('T')[0];
+          link.download = `bill-split-summary-${date}.png`;
+          link.href = url;
+          link.click();
+          URL.revokeObjectURL(url);
+        });
+      } catch (error) {
+        console.error('Export failed:', error);
+        document.body.removeChild(clonedContent);
+        alert('Failed to export summary. Please try again.');
+      }
+    }
+  </script>
+</body>
+</html>
