@@ -231,8 +231,8 @@
 
         <!-- Assignment State -->
         <div id="assignmentState" class="hidden">
-          <!-- Sticky Header with Totals -->
-          <div class="sticky bg-white z-10 px-6 py-3 border-b border-gray-200 shadow-sm" style="top: 100px; -webkit-position: sticky;">
+          <!-- Fixed Header with Totals -->
+          <div class="fixed left-0 right-0 bg-white z-40 px-6 py-3 border-b border-gray-200 shadow-sm" style="top: 100px;">
             <h3 class="text-lg font-semibold text-gray-800 mb-2">Assign Items</h3>
 
             <div class="bg-gray-100 rounded-lg p-2 flex justify-between items-center text-sm">
@@ -251,8 +251,8 @@
             </div>
           </div>
 
-          <!-- Content with Back Button -->
-          <div class="p-6">
+          <!-- Content with Back Button - add padding-top to account for fixed header -->
+          <div class="p-6" style="padding-top: 140px;">
             <button onclick="showState('partySetupState')" class="mb-3 text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
               ← Back
             </button>
